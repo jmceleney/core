@@ -111,6 +111,7 @@ class LoginController extends Controller {
 			return new RedirectResponse($this->getDefaultUrl());
 		}
 
+		$systemConfig = \OC::$server->getSystemConfig();
 		$parameters = [];
 		$loginMessages = $this->session->get('loginMessages');
 		$errors = [];
@@ -158,9 +159,18 @@ class LoginController extends Controller {
 			$parameters['user_autofocus'] = true;
 		}
 
-		return new TemplateResponse(
+		$templateResp =  new TemplateResponse(
 			$this->appName, 'login', $parameters, 'guest'
 		);
+		if($systemConfig->getValue('kerberos_spnego', false) && extension_loaded('krb5')) {
+			$templateResp->addCookie('oc_suppress_spnego', '', time() - 3600, '/');
+			$keytab = $systemConfig->getValue('kerberos_keytab','/etc/krb5.keytab');
+			if(is_readable($keytab) && !isset($_COOKIE["oc_suppress_spnego"])) {
+				$templateResp->setStatus(401);
+				$templateResp->addHeader('WWW-Authenticate', 'Negotiate');
+			}
+		}
+       return $templateResp;
 	}
 
 	/**

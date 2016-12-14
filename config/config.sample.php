@@ -201,6 +201,18 @@ $CONFIG = array(
  */
 'token_auth_enforced' => false,
 
+ /**
+ * Enable kerberos spnego authentication. The krb5 php pecl module is required
+ * for this feature to work.
+ */
+'kerberos_spnego' => false,
+
+/**
++ * The location of the keytab file for kerberos authentication.
++ * This file must be readable to the web server.
++ */
+'kerberos_keytab' => '/etc/krb5.keytab',
+
 /**
  * The directory where the skeleton files are located. These files will be
  * copied to the data directory of new users. Leave empty to not copy any

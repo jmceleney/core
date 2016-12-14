@@ -942,6 +942,9 @@ class OC {
 		if (OC_User::handleApacheAuth()) {
 			return true;
 		}
+		if ($userSession->trySPNEGOLogin($request)) {
+			return true;
+		}
 		if ($userSession->tryTokenLogin($request)) {
 			return true;
 		}

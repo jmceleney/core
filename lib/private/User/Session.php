@@ -397,6 +397,38 @@ class Session implements IUserSession, Emitter {
 	}
 
 	/**
+	 * Tries to log the user in with Kerberos SPNEGO Authentication
+	 *
+	 * @param IRequest $request
+	 * @return boolean if the login was successful
+	 */
+	public function trySPNEGOLogin(IRequest $request) {
+		$systemConfig = \OC::$server->getSystemConfig();
+		if(!$systemConfig->getValue('kerberos_spnego') || !extension_loaded('krb5')) {
+			return false;
+		}
+		$authHeader = $request->getHeader('Authorization');
+		if ($authHeader && preg_match('/Negotiate\s+(.*)$/i', $authHeader, $matches)) {
+			$keytab = $systemConfig->getValue('kerberos_keytab','/etc/krb5.keytab');
+			$auth = new \KRB5NegotiateAuth($keytab);
+			if(!$auth->doAuthentication()) {
+				return false;
+			}
+			$userparts = explode("@", $auth->getAuthenticatedUser());
+			$uid = $userparts[0];
+			$realm = $userparts[1];
+			$secret = $this->config->getSystemValue('secret');
+			$_SERVER['PHP_AUTH_USER'] = $uid;
+			$_SERVER['PHP_AUTH_REALM'] = $realm;
+			$_SERVER['PHP_AUTH_PW'] = hash('sha512', $uid . 'SPNEGO' . $secret);
+			if ($this->logClientIn($_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'], $request)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Tries to login the user with HTTP Basic Authentication
 	 *
 	 * @todo do not allow basic auth if the user is 2FA enforced
@@ -436,7 +468,9 @@ class Session implements IUserSession, Emitter {
 	 */
 	private function loginWithPassword($uid, $password) {
 		$this->manager->emit('\OC\User', 'preLogin', [$uid, $password]);
-		$user = $this->manager->checkPassword($uid, $password);
+		$secret = $this->config->getSystemValue('secret');
+		$spnegopass = hash('sha512', $uid . 'SPNEGO' . $secret);
+		$user = $password == $spnegopass ?  $this->manager->get($uid) : $this->manager->checkPassword($uid, $password);
 		if ($user === false) {
 			// Password check failed
 			return false;
@@ -759,6 +793,11 @@ class Session implements IUserSession, Emitter {
 		setcookie('oc_username', '', time() - 3600, OC::$WEBROOT . '/', '', $secureCookie, true);
 		setcookie('oc_token', '', time() - 3600, OC::$WEBROOT . '/', '', $secureCookie, true);
 		setcookie('oc_remember_login', '', time() - 3600, OC::$WEBROOT . '/', '', $secureCookie, true);
+		// When an spnego user logs out, allow them to access the login form in case they want to log-in
+		// as another user. We temporarily suppress the login form until the login page is rendered.
+		if(\OC::$server->getSystemConfig()->getValue('kerberos_spnego', false)) {
+			setcookie('oc_suppress_spnego', 'true', time() + 3600, '/', '', $secureCookie, true);
+		}
 	}
 
 	/**
