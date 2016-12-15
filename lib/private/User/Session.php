@@ -794,7 +794,7 @@ class Session implements IUserSession, Emitter {
 		setcookie('oc_token', '', time() - 3600, OC::$WEBROOT . '/', '', $secureCookie, true);
 		setcookie('oc_remember_login', '', time() - 3600, OC::$WEBROOT . '/', '', $secureCookie, true);
 		// When an spnego user logs out, allow them to access the login form in case they want to log-in
-		// as another user. We temporarily suppress the login form until the login page is rendered.
+		// as another user. We temporarily suppress the SPNEGO invitation until the login page is rendered.
 		if(\OC::$server->getSystemConfig()->getValue('kerberos_spnego', false)) {
 			setcookie('oc_suppress_spnego', 'true', time() + 3600, '/', '', $secureCookie, true);
 		}
